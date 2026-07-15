@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tast — Daily Task Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cover-green: #1F3D2B;
+    --cover-green-dark: #16301F;
+    --paper: #EFE8D8;
+    --paper-light: #F6F1E4;
+    --ink: #1B2A4A;
+    --stamp-red: #B23A2E;
+    --gold: #B08D57;
+    --muted: #6B5F4F;
+    --line: rgba(27,42,74,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: var(--cover-green);
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,0.03), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(255,255,255,0.03), transparent 40%);
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding: 32px 16px 64px;
+  }
+  .book{
+    width:100%;
+    max-width:720px;
+  }
+  .cover-bar{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding: 10px 26px;
+    color: var(--paper-light);
+  }
+  .cover-bar .brand{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:0.5px;
+  }
+  .cover-bar .sub{
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    opacity:0.65;
+  }
+  .page{
+    background: var(--paper);
+    border-radius: 3px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    padding: 30px 34px 40px;
+    position:relative;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 43px, var(--line) 44px
+    );
+  }
+  .page::before{
+    content:"";
+    position:absolute;
+    left:56px; top:0; bottom:0;
+    width:1px;
+    background: rgba(178,58,46,0.25);
+  }
+  .row-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    margin-bottom: 22px;
+    padding-left: 24px;
+  }
+  .date-display .weekday{
+    font-family:'Fraunces', serif;
+    font-size:28px;
+    font-weight:600;
+  }
+  .date-display .full-date{
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:1px;
+    margin-top:2px;
+  }
+  .nav-arrows{
+    display:flex;
+    gap:8px;
+  }
+  .nav-arrows button, .tab-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    padding:6px 12px;
+    border-radius:2px;
+    cursor:pointer;
+    font-size:13px;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .nav-arrows button:hover, .tab-btn:hover{ background: rgba(27,42,74,0.06); }
+  .tabs{
+    display:flex;
+    gap:10px;
+    padding-left:24px;
+    margin-bottom:22px;
+  }
+  .tab-btn.active{
+    background: var(--ink);
+    color: var(--paper-light);
+    border-color: var(--ink);
+  }
+  .add-row{
+    display:flex;
+    gap:10px;
+    padding-left:24px;
+    margin-bottom:20px;
+  }
+  .add-row input{
+    flex:1;
+    background: transparent;
+    border:none;
+    border-bottom: 1px dashed var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:15px;
+    padding:6px 4px;
+    color:var(--ink);
+    outline:none;
+  }
+  .add-row button{
+    background: var(--stamp-red);
+    color: var(--paper-light);
+    border:none;
+    padding:8px 18px;
+    border-radius:2px;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    cursor:pointer;
+    letter-spacing:0.5px;
+    font-size:13px;
+  }
+  .add-row button:hover{ background:#961f14; }
+  .tasks{
+    list-style:none;
+    margin:0; padding:0 0 0 24px;
+  }
+  .task{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding: 9px 0;
+    position:relative;
+  }
+  .stamp{
+    width:26px; height:26px;
+    border-radius:50%;
+    border:2px solid var(--stamp-red);
+    flex:0 0 auto;
+    cursor:pointer;
+    position:relative;
+    transition: transform 0.15s;
+  }
+  .stamp:hover{ transform: scale(1.08); }
+  .stamp.done{
+    background: var(--stamp-red);
+  }
+  .stamp.done::after{
+    content:"✓";
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--paper-light);
+    font-size:14px;
+    font-weight:700;
+    transform: rotate(-8deg);
+  }
+  .task-text{
+    flex:1;
+    font-size:15px;
+  }
+  .task.done .task-text{
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+  .del-btn{
+    background:none; border:none; color:var(--muted);
+    cursor:pointer; font-size:16px; opacity:0.4;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .del-btn:hover{ opacity:1; color:var(--stamp-red); }
+  .empty{
+    padding-left:24px;
+    color:var(--muted);
+    font-size:14px;
+    font-style:italic;
+  }
+  /* Report view */
+  .report-header{
+    padding-left:24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom: 20px;
+  }
+  .report-header select{
+    font-family:'IBM Plex Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--line);
+    padding:6px 10px;
+    border-radius:2px;
+    color:var(--ink);
+  }
+  .month-title{
+    font-family:'Fraunces', serif;
+    font-size:24px;
+    font-weight:600;
+  }
+  .stats-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:14px;
+    padding-left:24px;
+    margin-bottom:26px;
+  }
+  .stat-box{
+    border:1px solid var(--line);
+    padding:14px 12px;
+    text-align:center;
+    background: rgba(255,255,255,0.25);
+  }
+  .stat-box .num{
+    font-family:'Fraunces', serif;
+    font-size:28px;
+    font-weight:700;
+    color: var(--ink);
+  }
+  .stat-box .label{
+    font-size:10px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-top:4px;
+  }
+  .seal{
+    position:absolute;
+    top: 26px; right: 34px;
+    width:86px; height:86px;
+    border-radius:50%;
+    border:3px solid var(--stamp-red);
+    color:var(--stamp-red);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    transform: rotate(10deg);
+    font-family:'Fraunces', serif;
+    opacity:0.85;
+  }
+  .seal .pct{ font-size:20px; font-weight:700; line-height:1; }
+  .seal .word{ font-size:8px; letter-spacing:1.5px; margin-top:2px; }
+  .day-list{
+    padding-left:24px;
+    margin-top: 6px;
+  }
+  .day-row{
+    display:grid;
+    grid-template-columns: 90px 1fr 50px;
+    align-items:center;
+    gap:12px;
+    padding:5px 0;
+    font-size:13px;
+  }
+  .bar-track{
+    height:8px;
+    background: rgba(27,42,74,0.08);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .bar-fill{
+    height:100%;
+    background: var(--gold);
+  }
+  .day-count{
+    text-align:right;
+    color:var(--muted);
+  }
+  .footer-note{
+    text-align:center;
+    color: var(--paper-light);
+    opacity:0.5;
+    font-size:11px;
+    margin-top:18px;
+    letter-spacing:1px;
+  }
+  @media (max-width: 480px){
+    .stats-grid{ grid-template-columns: 1fr 1fr; }
+    .seal{ width:64px; height:64px; top:18px; right:20px; }
+    .seal .pct{ font-size:15px; }
+    .page{ padding: 24px 18px 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="book">
+  <div class="cover-bar">
+    <div class="brand">Tast</div>
+    <div class="sub">a daily task ledger</div>
+  </div>
+
+  <div class="page" id="page"></div>
+  <div class="footer-note">entries are kept in this browser only</div>
+</div>
+
+<script>
+const STORAGE_KEY = 'tast_ledger_v1';
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+let view = 'day';           // 'day' | 'report'
+let currentDate = new Date();
+let reportMonth = currentDate.getMonth();
+let reportYear = currentDate.getFullYear();
+
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function dateKey(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fmtWeekday(d){ return d.toLocaleDateString('en-US', {weekday:'long'}); }
+function fmtFull(d){ return d.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}); }
+
+function addTask(text){
+  const key = dateKey(currentDate);
+  if(!state[key]) state[key] = [];
+  state[key].push({id: Date.now()+Math.random(), text, done:false});
+  save(); render();
+}
+function toggleTask(key, id){
+  const t = state[key].find(t=>t.id===id);
+  if(t){ t.done = !t.done; save(); render(); }
+}
+function deleteTask(key, id){
+  state[key] = state[key].filter(t=>t.id!==id);
+  save(); render();
+}
+function shiftDay(delta){
+  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()+delta);
+  render();
+}
+
+function renderDayView(){
+  const key = dateKey(currentDate);
+  const tasks = state[key] || [];
+  const isToday = dateKey(new Date()) === key;
+  let html = `
+    <div class="tabs">
+      <button class="tab-btn active" onclick="view='day'; render()">Today's page</button>
+      <button class="tab-btn" onclick="view='report'; render()">Monthly report</button>
+    </div>
+    <div class="row-head">
+      <div class="date-display">
+        <div class="weekday">${fmtWeekday(currentDate)}${isToday ? '' : ''}</div>
+        <div class="full-date">${fmtFull(currentDate)}</div>
+      </div>
+      <div class="nav-arrows">
+        <button onclick="shiftDay(-1)">‹ prev</button>
+        <button onclick="currentDate = new Date(); render()">today</button>
+        <button onclick="shiftDay(1)">next ›</button>
+      </div>
+    </div>
+    <div class="add-row">
+      <input id="taskInput" type="text" placeholder="Add a task for this day…" onkeydown="if(event.key==='Enter'){submitTask()}">
+      <button onclick="submitTask()">Add</button>
+    </div>
+  `;
+  if(tasks.length === 0){
+    html += `<div class="empty">No entries yet — add the first task above.</div>`;
+  } else {
+    html += `<ul class="tasks">`;
+    tasks.forEach(t=>{
+      html += `
+        <li class="task ${t.done ? 'done':''}">
+          <div class="stamp ${t.done?'done':''}" onclick="toggleTask('${key}', ${t.id})"></div>
+          <div class="task-text">${escapeHtml(t.text)}</div>
+          <button class="del-btn" onclick="deleteTask('${key}', ${t.id})" title="remove">✕</button>
+        </li>`;
+    });
+    html += `</ul>`;
+  }
+  document.getElementById('page').innerHTML = html;
+}
+
+function submitTask(){
+  const input = document.getElementById('taskInput');
+  const val = input.value.trim();
+  if(val){ addTask(val); }
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function monthKeysInRange(year, month){
+  const keys = [];
+  const days = new Date(year, month+1, 0).getDate();
+  for(let d=1; d<=days; d++){
+    const dt = new Date(year, month, d);
+    keys.push(dateKey(dt));
+  }
+  return keys;
+}
+
+function renderReportView(){
+  const keys = monthKeysInRange(reportYear, reportMonth);
+  let total = 0, done = 0;
+  const dayStats = [];
+  keys.forEach(k=>{
+    const tasks = state[k] || [];
+    const dcount = tasks.filter(t=>t.done).length;
+    total += tasks.length;
+    done += dcount;
+    if(tasks.length>0){
+      dayStats.push({key:k, total: tasks.length, done: dcount});
+    }
+  });
+  const pct = total > 0 ? Math.round((done/total)*100) : 0;
+  const activeDays = dayStats.length;
+  const bestDay = dayStats.slice().sort((a,b)=> b.done - a.done)[0];
+  const monthName = new Date(reportYear, reportMonth, 1).toLocaleDateString('en-US', {month:'long', year:'numeric'});
+
+  // month options: current year, all 12 months
+  let monthOptions = '';
+  for(let m=0; m<12; m++){
+    const label = new Date(reportYear, m, 1).toLocaleDateString('en-US', {month:'long'});
+    monthOptions += `<option value="${m}" ${m===reportMonth?'selected':''}>${label}</option>`;
+  }
+
+  let html = `
+    <div class="tabs">
+      <button class="tab-btn" onclick="view='day'; render()">Today's page</button>
+      <button class="tab-btn active" onclick="view='report'; render()">Monthly report</button>
+    </div>
+    <div class="seal">
+      <div class="pct">${pct}%</div>
+      <div class="word">closed</div>
+    </div>
+    <div class="report-header">
+      <div class="month-title">${monthName}</div>
+      <select onchange="reportMonth=parseInt(this.value); render()">${monthOptions}</select>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="num">${total}</div><div class="label">Tasks logged</div></div>
+      <div class="stat-box"><div class="num">${done}</div><div class="label">Completed</div></div>
+      <div class="stat-box"><div class="num">${activeDays}</div><div class="label">Active days</div></div>
+    </div>
+  `;
+
+  if(dayStats.length === 0){
+    html += `<div class="empty">No entries logged for ${monthName}.</div>`;
+  } else {
+    html += `<div class="day-list">`;
+    dayStats.forEach(ds=>{
+      const day = parseInt(ds.key.split('-')[2]);
+      const w = ds.total > 0 ? Math.round((ds.done/ds.total)*100) : 0;
+      html += `
+        <div class="day-row">
+          <div>Day ${day}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
+          <div class="day-count">${ds.done}/${ds.total}</div>
+        </div>`;
+    });
+    html += `</div>`;
+    if(bestDay){
+      const bd = parseInt(bestDay.key.split('-')[2]);
+      html += `<div class="empty" style="margin-top:16px;">Best day: Day ${bd} with ${bestDay.done} task${bestDay.done===1?'':'s'} completed.</div>`;
+    }
+  }
+  document.getElementById('page').innerHTML = html;
+}
+
+function render(){
+  if(view === 'day') renderDayView();
+  else renderReportView();
+}
+
+render();
+</script>
+</body>
+</html>
